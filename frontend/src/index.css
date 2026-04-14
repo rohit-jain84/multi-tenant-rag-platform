@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0f3460;
+  --color-primary-light: #1a4a8a;
+  --color-primary-dark: #0a2340;
+  --color-accent: #e94560;
+  --color-accent-light: #ff6b81;
+  --color-surface: #f8f9fa;
+  --color-surface-alt: #f0f1f3;
+  --color-border: #e2e4e8;
+  --color-border-dark: #d0d3d8;
+  --color-text: #1a1a2e;
+  --color-text-muted: #6b7280;
+  --color-success: #2ecc71;
+  --color-warning: #f39c12;
+  --color-danger: #e94560;
+  --color-info: #3498db;
+
+  --color-dark-bg: #1a1a2e;
+  --color-dark-surface: #1e1e30;
+  --color-dark-surface-alt: #252540;
+  --color-dark-border: #2a2a45;
+  --color-dark-text: #eaeaea;
+  --color-dark-text-muted: #a0a0b0;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #ffffff;
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-dark);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}

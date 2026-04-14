@@ -1,0 +1,433 @@
+[
+    {
+        "question": "What is the default chunk size used for document chunking?",
+        "ground_truth": "The default chunk size is 512 tokens.",
+        "contexts": ["DEFAULT_CHUNK_SIZE: int = 512"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What embedding model is used by the platform?",
+        "ground_truth": "The platform uses the all-MiniLM-L6-v2 embedding model with a dimension of 384.",
+        "contexts": ["EMBEDDING_MODEL: str = 'all-MiniLM-L6-v2'\nEMBEDDING_DIMENSION: int = 384"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the default rate limit for queries per minute?",
+        "ground_truth": "The default rate limit is 60 queries per minute.",
+        "contexts": ["DEFAULT_RATE_LIMIT_QPM: int = 60"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the default LLM model used for answer generation?",
+        "ground_truth": "The default LLM model is gpt-4o-mini.",
+        "contexts": ["LLM_MODEL: str = 'gpt-4o-mini'"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the query cache TTL in seconds?",
+        "ground_truth": "The query cache TTL is 300 seconds (5 minutes).",
+        "contexts": ["QUERY_CACHE_TTL_SECONDS: int = 300"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the embedding dimension of the vectors stored in Qdrant?",
+        "ground_truth": "The embedding dimension is 384.",
+        "contexts": ["EMBEDDING_DIMENSION: int = 384"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "How many results does the dense retriever return by default?",
+        "ground_truth": "The dense retriever returns 20 results by default (DEFAULT_TOP_K = 20).",
+        "contexts": ["DEFAULT_TOP_K: int = 20"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the default semantic similarity threshold for the semantic chunker?",
+        "ground_truth": "The default semantic similarity threshold is 0.75.",
+        "contexts": ["SEMANTIC_SIMILARITY_THRESHOLD: float = 0.75"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What port does the Qdrant vector store run on by default?",
+        "ground_truth": "Qdrant runs on port 6333 by default.",
+        "contexts": ["QDRANT_PORT: int = 6333"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the default chunk overlap size?",
+        "ground_truth": "The default chunk overlap is 50 tokens.",
+        "contexts": ["DEFAULT_CHUNK_OVERLAP: int = 50"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the RRF constant K used in reciprocal rank fusion?",
+        "ground_truth": "The RRF constant K is 60.",
+        "contexts": ["RRF_K: int = 60"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "How does the hybrid search pipeline combine dense and sparse retrieval results?",
+        "ground_truth": "The hybrid search pipeline runs both dense (embedding-based) and sparse (keyword-based) retrieval in parallel, then combines them using Reciprocal Rank Fusion (RRF). The RRF formula computes a score for each document as the sum of 1/(k + rank) across each ranking list. After fusion, the top-k candidates are optionally reranked using a cross-encoder or Cohere reranker before returning the final top-n results.",
+        "contexts": [
+            "RRF_score(d) = sum(1 / (k + rank_i(d))) for each ranking list i.",
+            "dense_results = await asyncio.to_thread(dense_retrieve, tenant_id, query, top_k, filters)\nsparse_results = await sparse_retrieve(tenant_id, query, top_k)\nfused = reciprocal_rank_fusion(dense_results, sparse_results)"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "How does the parent-child chunking strategy affect the answer generation process?",
+        "ground_truth": "In the parent-child chunking strategy, small child chunks (~256 tokens) are stored in the vector database for precise retrieval, while each child references a larger parent chunk (~2048 tokens). During answer generation, when child chunks are retrieved, the LLM service uses the parent text (if available) instead of the child text to provide broader context. This is handled by the _format_context function which checks for parent_text on each chunk.",
+        "contexts": [
+            "Parent chunks (~2048 tokens) provide broad context for LLM generation. Child chunks (~256 tokens) are stored in the vector DB for precise retrieval.",
+            "text = chunk.parent_text or chunk.text"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "How does the reranking fallback mechanism work when the primary reranker fails?",
+        "ground_truth": "The system uses a fallback strategy for reranking. It first attempts to use the Cohere reranker (rerank-english-v3.0 model) if configured. If Cohere fails or is unavailable, it falls back to a local cross-encoder model (cross-encoder/ms-marco-MiniLM-L-6-v2). Additionally, if the Cohere reranker itself encounters an error during a specific call, it returns the original chunks sorted by their existing scores instead of crashing.",
+        "contexts": [
+            "def rerank_with_fallback: Try Cohere reranker first, fall back to local cross-encoder.",
+            "RERANKER_TYPE: str = 'cohere'\nCROSS_ENCODER_MODEL: str = 'cross-encoder/ms-marco-MiniLM-L-6-v2'"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "What happens to a query when both retrieval and reranking are enabled in hybrid mode?",
+        "ground_truth": "When both retrieval and reranking are enabled in hybrid mode, the query goes through four stages: (1) Dense retrieval embeds the query and searches Qdrant for top-k similar chunks, (2) Sparse retrieval performs keyword-based search for top-k results, (3) Reciprocal Rank Fusion combines both result sets using the formula 1/(k+rank) with k=60, selecting the top-k fused candidates, and (4) The reranker (Cohere or cross-encoder) scores each candidate against the query and returns the top-n most relevant results. Timing metrics are recorded for each stage.",
+        "contexts": [
+            "dense_results = await asyncio.to_thread(dense_retrieve, tenant_id, query, top_k, filters)",
+            "sparse_results = await sparse_retrieve(tenant_id, query, top_k)",
+            "fused = reciprocal_rank_fusion(dense_results, sparse_results)",
+            "reranked = await asyncio.to_thread(rerank_with_fallback, query, candidates, top_n)"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "How does the cost tracking system calculate and log estimated costs for queries?",
+        "ground_truth": "The cost tracking system calculates costs using per-token pricing: prompt cost = (prompt_tokens / 1000) * LLM_PRICE_PROMPT_PER_1K, and completion cost = (completion_tokens / 1000) * LLM_PRICE_COMPLETION_PER_1K. The default rates are $0.00015 per 1K prompt tokens and $0.0006 per 1K completion tokens (gpt-4o-mini pricing). The result is rounded to 6 decimal places and logged in a QueryLog record along with token counts, latency, and retrieval strategy.",
+        "contexts": [
+            "prompt_cost = (prompt_tokens / 1000) * settings.LLM_PRICE_PROMPT_PER_1K\ncompletion_cost = (completion_tokens / 1000) * settings.LLM_PRICE_COMPLETION_PER_1K",
+            "LLM_PRICE_PROMPT_PER_1K: float = 0.00015\nLLM_PRICE_COMPLETION_PER_1K: float = 0.0006"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "How does the semantic chunker decide where to split text into chunks?",
+        "ground_truth": "The semantic chunker splits text at sentence boundaries where consecutive sentences have low semantic similarity. It first splits text into sentences using regex, embeds all sentences, then computes cosine similarity between consecutive sentence embeddings. It creates a new chunk boundary when the similarity drops below the threshold (default 0.75) or when adding the next sentence would exceed the maximum chunk token limit. Sentences within the same semantic group are joined together to form a chunk.",
+        "contexts": [
+            "for i in range(len(embeddings) - 1): sim = cosine_similarity(embeddings[i], embeddings[i + 1])",
+            "if sim < self.similarity_threshold or self._token_count(' '.join(current_group + [sentences[i + 1]])) > self.max_chunk_tokens"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "What metadata filters can be applied during vector search, and how are they structured?",
+        "ground_truth": "Three types of metadata filters can be applied during vector search: (1) document_ids — filters by specific document UUIDs using MatchAny, (2) categories — filters by document categories using MatchAny, and (3) date_range — filters by upload date using a range condition with optional start (gte) and end (lte) dates in ISO format. All active conditions are combined in a Qdrant Filter with a 'must' clause, meaning all conditions must be satisfied.",
+        "contexts": [
+            "if filters.document_ids: conditions.append(FieldCondition(key='document_id', match=MatchAny(any=[str(did) for did in filters.document_ids])))",
+            "if filters.categories: conditions.append(FieldCondition(key='category', match=MatchAny(any=filters.categories)))",
+            "return qmodels.Filter(must=conditions)"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "How does the ingestion pipeline process a document from upload to vector storage?",
+        "ground_truth": "The ingestion pipeline processes documents through five stages: (1) Text extraction — selects the appropriate extractor based on file extension (PDF, DOCX, HTML, or Markdown), (2) Content hashing — computes a hash of the raw file content, (3) Chunking — splits the extracted text using the configured strategy (semantic, fixed-size, or parent-child), (4) Embedding — generates vector embeddings for all chunk texts using the configured embedding model, and (5) Vector storage — ensures a Qdrant collection exists for the tenant and upserts chunks with their embeddings and metadata (tenant_id, document_id, page_number, section_heading, category, etc.).",
+        "contexts": [
+            "extractor = get_extractor(ext)\nextracted = extractor.extract(file_content, filename)",
+            "chunker = get_chunker(strategy)\nchunks = chunker.chunk(extracted)",
+            "embeddings = embed_texts(chunk_texts)",
+            "ensure_collection(tenant_id)\nupsert_chunks(tenant_id, chunk_ids, embeddings, payloads)"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "What is the LLM temperature setting used for answer generation, and what timeout is configured?",
+        "ground_truth": "The LLM temperature is set to 0.1 for answer generation (both streaming and non-streaming). The non-streaming timeout is 60 seconds, and the streaming timeout is 120 seconds. The max_tokens limit is 1024 for both modes.",
+        "contexts": [
+            "temperature: 0.1, max_tokens: 1024",
+            "httpx.AsyncClient(timeout=60.0)",
+            "httpx.AsyncClient(timeout=120.0)"
+        ],
+        "category": "multi_hop_reasoning"
+    },
+    {
+        "question": "Summarize the key components of the retrieval pipeline.",
+        "ground_truth": "The retrieval pipeline consists of four key components: (1) Dense Retriever — embeds the query using all-MiniLM-L6-v2 and performs vector similarity search in Qdrant, (2) Sparse Retriever — performs keyword-based search for complementary results, (3) Reciprocal Rank Fusion — merges dense and sparse results using the RRF scoring formula with k=60, and (4) Reranker — applies either Cohere's rerank-english-v3.0 or a local cross-encoder model to re-score and select the final top-n chunks. The pipeline tracks timing metrics for each stage.",
+        "contexts": [
+            "dense_results = await asyncio.to_thread(dense_retrieve, tenant_id, query, top_k, filters)",
+            "fused = reciprocal_rank_fusion(dense_results, sparse_results)",
+            "reranked = await asyncio.to_thread(rerank_with_fallback, query, candidates, top_n)"
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "Provide an overview of the document ingestion process.",
+        "ground_truth": "The document ingestion process handles uploading and processing documents for RAG. It supports four document formats: PDF, DOCX, HTML, and Markdown. Each document goes through text extraction using a format-specific extractor, content hashing for deduplication, chunking using one of three strategies (semantic, fixed-size, or parent-child), embedding generation using the all-MiniLM-L6-v2 model, and storage in Qdrant with rich metadata including tenant_id, document_id, page numbers, section headings, and categories.",
+        "contexts": [
+            "ext = os.path.splitext(filename)[1].lower()\nextractor = get_extractor(ext)",
+            "result.content_hash = hash_content(file_content)",
+            "chunker = get_chunker(strategy)\nchunks = chunker.chunk(extracted)"
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "Summarize the three chunking strategies available in the platform.",
+        "ground_truth": "The platform offers three chunking strategies: (1) Fixed-size chunking — splits text into chunks of a fixed token count (default 512) with configurable overlap (default 50 tokens), providing consistent chunk sizes. (2) Semantic chunking — uses sentence embeddings to detect topic boundaries, splitting when cosine similarity between consecutive sentences drops below 0.75, creating semantically coherent chunks. (3) Parent-child chunking — creates a hierarchy with large parent chunks (~2048 tokens) for LLM context and small child chunks (~256 tokens) for vector retrieval, enabling precise retrieval with broad context during generation.",
+        "contexts": [
+            "DEFAULT_CHUNK_SIZE: int = 512\nDEFAULT_CHUNK_OVERLAP: int = 50",
+            "similarity_threshold or settings.SEMANTIC_SIMILARITY_THRESHOLD",
+            "Parent chunks (~2048 tokens) provide broad context for LLM generation. Child chunks (~256 tokens) are stored in the vector DB for precise retrieval."
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "Summarize the LLM system prompt and the rules it enforces for answer generation.",
+        "ground_truth": "The system prompt instructs the LLM to act as a document Q&A assistant with five rules: (1) Only use information from the provided source context, not external knowledge, (2) Cite sources using [Source N] notation inline, where N corresponds to the source number, (3) If the context lacks sufficient information, respond that there is not enough information in the provided documents, (4) Be concise and accurate with specific details from sources, and (5) Cite all relevant sources when multiple support a claim.",
+        "contexts": [
+            "You are a helpful document Q&A assistant. Answer the user's question ONLY using the provided source context below.",
+            "Cite your sources using [Source N] notation inline in your answer"
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "Summarize the multi-tenancy architecture of the platform.",
+        "ground_truth": "The platform implements multi-tenancy by isolating data at the tenant level. Each tenant has their own Qdrant collection for vector storage, ensuring complete data separation. All operations (ingestion, retrieval, queries) require a tenant_id parameter. Metadata filters in the vector store include tenant_id, allowing tenant-scoped searches. Query logs and cost tracking are also tenant-scoped, and usage statistics can be retrieved per tenant. Rate limiting is applied per tenant with a default of 60 queries per minute.",
+        "contexts": [
+            "ensure_collection(tenant_id)\nupsert_chunks(tenant_id, chunk_ids, embeddings, payloads)",
+            "tenant_id=tenant_id in run_retrieval, log_query, get_tenant_usage"
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "Summarize how the RAGAS evaluation system works.",
+        "ground_truth": "The RAGAS evaluation system loads a predefined set of questions with ground truth answers from eval_set.json. For each question, it runs the full retrieval pipeline (using the configured search strategy and reranking settings) to get context chunks, then generates an answer via the LLM. It collects all questions, generated answers, retrieved contexts, and ground truths, then computes four RAGAS metrics: faithfulness, answer relevancy, context precision, and context recall. Results are stored in an EvalResult database record tied to the evaluation run.",
+        "contexts": [
+            "retrieval_result = await run_retrieval(tenant_id=tenant_id, query=question, search_type=search_type, reranking_enabled=reranking_enabled)",
+            "llm_result = await generate_answer(question, retrieval_result.chunks)",
+            "metrics=[faithfulness, answer_relevancy, context_precision, context_recall]"
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "Provide a summary of the reranking capabilities and model options.",
+        "ground_truth": "The platform supports two reranking backends: (1) Cohere Reranker — uses Cohere's rerank-english-v3.0 API model, requires a COHERE_API_KEY, and returns relevance scores for each chunk. If a Cohere call fails, it gracefully falls back to returning chunks sorted by their existing scores. (2) Cross-Encoder Reranker — uses the local cross-encoder/ms-marco-MiniLM-L-6-v2 model from sentence-transformers, computing similarity scores for query-chunk pairs. The rerank_with_fallback function tries Cohere first and falls back to the cross-encoder if Cohere is unavailable.",
+        "contexts": [
+            "CohereReranker: model='rerank-english-v3.0'",
+            "CrossEncoderReranker: CrossEncoder(settings.CROSS_ENCODER_MODEL)",
+            "def rerank_with_fallback: Try Cohere reranker first, fall back to local cross-encoder."
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "Summarize the cost tracking and usage monitoring features.",
+        "ground_truth": "The platform tracks LLM costs per query using configurable per-token pricing. Costs are calculated as (prompt_tokens/1000 * prompt_rate) + (completion_tokens/1000 * completion_rate), with default rates of $0.00015 and $0.0006 per 1K tokens respectively. Each query is logged with token counts, estimated cost, latency in milliseconds, latency breakdown by pipeline stage, and retrieval strategy. Tenant-level usage summaries aggregate total queries, total tokens (prompt and completion), and total estimated cost.",
+        "contexts": [
+            "estimate_cost: prompt_cost = (prompt_tokens / 1000) * settings.LLM_PRICE_PROMPT_PER_1K",
+            "get_tenant_usage: total_queries, total_prompt_tokens, total_completion_tokens, total_tokens, total_estimated_cost"
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "Summarize the context formatting approach used for LLM prompts.",
+        "ground_truth": "The context is formatted by the _format_context function which numbers each retrieved chunk as [Source N] and includes metadata: the document name, page number (if available), and section heading (if available). For chunks from the parent-child strategy, the parent text is used instead of the child text to provide broader context. Sources are separated by horizontal rule markers (---). This formatted context is placed in the user message before the question.",
+        "contexts": [
+            "text = chunk.parent_text or chunk.text\nloc = f'{chunk.document_name}'\nif chunk.page_number: loc += f', p.{chunk.page_number}'",
+            "parts.append(f'[Source {i}] ({loc}):\\n{text}')\nreturn '\\n\\n---\\n\\n'.join(parts)"
+        ],
+        "category": "summarization"
+    },
+    {
+        "question": "What are the differences between semantic chunking and fixed-size chunking?",
+        "ground_truth": "Semantic chunking splits text based on meaning by computing cosine similarity between consecutive sentence embeddings and creating boundaries where similarity drops below a threshold (0.75). This produces variable-sized chunks that preserve semantic coherence. Fixed-size chunking splits text into uniform token-count chunks (default 512 tokens) with configurable overlap (default 50 tokens), regardless of content meaning. Semantic chunking requires embedding computation during ingestion (more expensive) but produces higher quality chunks, while fixed-size chunking is simpler and faster but may split related content across chunks.",
+        "contexts": [
+            "SemanticChunker: sim < self.similarity_threshold — groups sentences by semantic similarity",
+            "FixedSizeChunker: splits into fixed token count chunks with overlap"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "What are the differences between the Cohere reranker and the cross-encoder reranker?",
+        "ground_truth": "The Cohere reranker is a cloud-based API service using the rerank-english-v3.0 model that requires a COHERE_API_KEY and makes external HTTP calls. It has built-in error handling that returns original chunks sorted by score on failure. The cross-encoder reranker uses a local model (cross-encoder/ms-marco-MiniLM-L-6-v2) from sentence-transformers, computing scores by processing query-chunk pairs through the model. The key differences are: Cohere is faster for large batches but requires internet and API keys, while the cross-encoder runs locally with no external dependencies but uses local compute resources.",
+        "contexts": [
+            "CohereReranker: cohere.Client(settings.COHERE_API_KEY), model='rerank-english-v3.0'",
+            "CrossEncoderReranker: CrossEncoder(settings.CROSS_ENCODER_MODEL), pairs = [[query, c.text] for c in chunks]"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "How does dense retrieval differ from sparse retrieval in the platform?",
+        "ground_truth": "Dense retrieval converts the query into a vector embedding using all-MiniLM-L6-v2 and performs approximate nearest neighbor search in Qdrant to find semantically similar chunks. It captures meaning and can find relevant results even without exact keyword matches. Sparse retrieval uses keyword-based matching (like BM25) to find chunks containing the query terms. Dense retrieval runs in a thread to avoid blocking the event loop, while sparse retrieval is async. In hybrid mode, both are run and their results are combined via Reciprocal Rank Fusion.",
+        "contexts": [
+            "dense_retrieve: query_embedding = embed_query(query), search_vectors in Qdrant",
+            "sparse_results = await sparse_retrieve(tenant_id, query, top_k)"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "Compare hybrid search mode versus dense-only search mode.",
+        "ground_truth": "In hybrid search mode, the system runs both dense (vector) and sparse (keyword) retrieval, then combines results using Reciprocal Rank Fusion (RRF) with k=60. This captures both semantic similarity and exact keyword matches, producing more robust results. In dense-only mode, only the embedding-based vector search is performed — sparse retrieval and fusion are skipped (sparse_ms and fusion_ms are recorded as 0). Both modes support optional reranking as a final step. Hybrid mode has higher latency due to running two retrieval methods but generally produces better recall.",
+        "contexts": [
+            "if search_type == 'hybrid': sparse_results = await sparse_retrieve; fused = reciprocal_rank_fusion(dense_results, sparse_results)",
+            "else: candidates = dense_results; timing['sparse_ms'] = 0; timing['fusion_ms'] = 0"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "What are the differences between streaming and non-streaming answer generation?",
+        "ground_truth": "Non-streaming generation (generate_answer) makes a single POST request with a 60-second timeout and returns the complete response as a dict with content and usage information (prompt_tokens, completion_tokens, total_tokens). Streaming generation (generate_answer_stream) uses an async streaming request with a 120-second timeout and yields content tokens incrementally as they arrive by parsing SSE data lines. Both use the same system prompt, temperature (0.1), and max_tokens (1024). Streaming does not return usage statistics since tokens are yielded incrementally.",
+        "contexts": [
+            "generate_answer: httpx.AsyncClient(timeout=60.0), returns {'content': content, 'usage': {...}}",
+            "generate_answer_stream: httpx.AsyncClient(timeout=120.0), yields content tokens, 'stream': True"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "Compare the parent-child chunking strategy with the other chunking strategies.",
+        "ground_truth": "Parent-child chunking creates a two-level hierarchy: large parent chunks (~2048 tokens) and small child chunks (~256 tokens with 50-token overlap). Child chunks are stored in the vector DB for precise retrieval, but at generation time the broader parent text is passed to the LLM. Fixed-size chunking uses uniform chunks (512 tokens, 50 overlap) with no hierarchy. Semantic chunking creates variable-size chunks based on meaning boundaries with no parent context. Parent-child is the most complex but provides the best balance of retrieval precision and generation context, at the cost of storing additional parent text in metadata.",
+        "contexts": [
+            "ParentChildChunker: parent_chunk_size=2048, child_chunk_size=256, child_overlap=50",
+            "text = chunk.parent_text or chunk.text"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "How do the Qdrant metadata filters for document_ids and categories differ in their behavior?",
+        "ground_truth": "Both document_ids and categories filters use Qdrant's MatchAny condition, meaning results must match any value in the provided list. The document_ids filter operates on the 'document_id' field and accepts UUID values (converted to strings), filtering to specific documents. The categories filter operates on the 'category' field and accepts string values, filtering by document category labels. Both are combined in a 'must' clause when used together, meaning a result must satisfy both filters simultaneously.",
+        "contexts": [
+            "FieldCondition(key='document_id', match=MatchAny(any=[str(did) for did in filters.document_ids]))",
+            "FieldCondition(key='category', match=MatchAny(any=filters.categories))"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "What is the difference between top_k and top_n parameters in the retrieval pipeline?",
+        "ground_truth": "top_k (default 20) controls how many candidate chunks are retrieved from the initial search phase (dense retrieval and sparse retrieval each return up to top_k results). top_n (default 5) controls how many final results are returned after reranking. The pipeline first retrieves a broad set of top_k candidates, then the reranker narrows them down to the top_n most relevant results. If reranking is disabled, the candidates are simply truncated to top_n.",
+        "contexts": [
+            "top_k = top_k or settings.DEFAULT_TOP_K\ntop_n = top_n or settings.DEFAULT_TOP_N",
+            "reranked = await asyncio.to_thread(rerank_with_fallback, query, candidates, top_n)",
+            "reranked = candidates[:top_n]"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "Compare the prompt token cost and completion token cost for the default LLM.",
+        "ground_truth": "The default LLM (gpt-4o-mini) has different pricing for prompt and completion tokens. Prompt tokens cost $0.00015 per 1,000 tokens, while completion tokens cost $0.0006 per 1,000 tokens. Completion tokens are 4 times more expensive than prompt tokens. This reflects the standard pattern where generating output tokens is more computationally expensive than processing input tokens.",
+        "contexts": [
+            "LLM_PRICE_PROMPT_PER_1K: float = 0.00015\nLLM_PRICE_COMPLETION_PER_1K: float = 0.0006"
+        ],
+        "category": "comparison"
+    },
+    {
+        "question": "What is the company's annual revenue?",
+        "ground_truth": "The provided documents do not contain information about the company's annual revenue.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "Who is the CEO of the organization that built this platform?",
+        "ground_truth": "The provided documents do not contain information about the CEO or the organization that built the platform.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "What is the platform's pricing for enterprise customers?",
+        "ground_truth": "The provided documents do not contain information about enterprise pricing plans.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "How many users are currently registered on the platform?",
+        "ground_truth": "The provided documents do not contain information about the number of registered users.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "What programming language was used to train the embedding model?",
+        "ground_truth": "The provided documents do not contain information about the programming language used to train the embedding model. The documents only reference that the platform uses the all-MiniLM-L6-v2 model.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "What is the platform's uptime SLA guarantee?",
+        "ground_truth": "The provided documents do not contain information about uptime SLA guarantees.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "When was the platform first released to production?",
+        "ground_truth": "The provided documents do not contain information about the platform's production release date.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "What compliance certifications does the platform hold (SOC2, HIPAA, etc.)?",
+        "ground_truth": "The provided documents do not contain information about compliance certifications such as SOC2 or HIPAA.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "How does the platform compare to LangChain in terms of performance?",
+        "ground_truth": "The provided documents do not contain any performance comparisons with LangChain or other frameworks.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "What is the maximum file size allowed for document uploads?",
+        "ground_truth": "The provided documents do not specify a maximum file size limit for document uploads.",
+        "contexts": [],
+        "category": "adversarial"
+    },
+    {
+        "question": "What document formats does the platform support for ingestion?",
+        "ground_truth": "The platform supports four document formats for ingestion: PDF, DOCX, HTML, and Markdown. The appropriate extractor is selected based on the file extension.",
+        "contexts": [
+            "ext = os.path.splitext(filename)[1].lower()\nextractor = get_extractor(ext)",
+            "pdf_extractor.py, docx_extractor.py, html_extractor.py, markdown_extractor.py"
+        ],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the default chunking strategy?",
+        "ground_truth": "The default chunking strategy is semantic chunking.",
+        "contexts": ["DEFAULT_CHUNKING_STRATEGY: str = 'semantic'"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What tokenizer encoding is used by the semantic and parent-child chunkers?",
+        "ground_truth": "Both the semantic chunker and parent-child chunker use the cl100k_base encoding from tiktoken for token counting.",
+        "contexts": ["self._enc = tiktoken.get_encoding('cl100k_base')"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What is the parent chunk size in the parent-child chunking strategy?",
+        "ground_truth": "The parent chunk size is 2048 tokens, while child chunks are 256 tokens with 50-token overlap.",
+        "contexts": ["parent_chunk_size: int = 2048, child_chunk_size: int = 256, child_overlap: int = 50"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What Cohere reranking model does the platform use?",
+        "ground_truth": "The platform uses the rerank-english-v3.0 model from Cohere for reranking.",
+        "contexts": ["model='rerank-english-v3.0'"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What cross-encoder model is used as the local reranking fallback?",
+        "ground_truth": "The local reranking fallback uses the cross-encoder/ms-marco-MiniLM-L-6-v2 model.",
+        "contexts": ["CROSS_ENCODER_MODEL: str = 'cross-encoder/ms-marco-MiniLM-L-6-v2'"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What database does the platform use for storing query logs and evaluation results?",
+        "ground_truth": "The platform uses PostgreSQL (accessed via asyncpg) with the default connection URL postgresql+asyncpg://raguser:ragpass@localhost:5432/ragplatform.",
+        "contexts": ["DATABASE_URL: str = 'postgresql+asyncpg://raguser:ragpass@localhost:5432/ragplatform'"],
+        "category": "factual_retrieval"
+    },
+    {
+        "question": "What four RAGAS metrics are computed during evaluation?",
+        "ground_truth": "The four RAGAS metrics computed are: faithfulness, answer relevancy, context precision, and context recall.",
+        "contexts": ["metrics=[faithfulness, answer_relevancy, context_precision, context_recall]"],
+        "category": "factual_retrieval"
+    }
+]
