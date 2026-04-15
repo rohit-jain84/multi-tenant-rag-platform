@@ -1,6 +1,90 @@
 # Multi-Tenant RAG Platform
 
-A production-grade Retrieval-Augmented Generation platform with full multi-tenant isolation, hybrid search, intelligent reranking, and comprehensive evaluation.
+**Production-grade document Q&A with tenant isolation, hybrid search, and measurable retrieval quality.**
+
+---
+
+Every company has the same problem: critical knowledge is buried in PDFs, Word docs, and internal wikis. Teams waste hours searching for answers that exist somewhere in the organization's documents. Off-the-shelf RAG solutions get you a prototype in a weekend, but they fall apart when you need tenant isolation, verifiable citations, or any way to measure whether the answers are actually correct.
+
+This platform solves that gap. It's a multi-tenant Retrieval-Augmented Generation system where organizations upload their documents and employees ask natural-language questions. Every answer cites specific source passages with page numbers. Every tenant's data is fully isolated — separate vector collections, separate BM25 indices, separate rate limits. And critically, retrieval quality is measured, not assumed: a built-in RAGAS evaluation framework benchmarks faithfulness, context recall, and answer relevancy against a 50-question evaluation set.
+
+The retrieval pipeline goes beyond basic vector search. It combines dense embeddings with BM25 sparse retrieval via Reciprocal Rank Fusion, then applies neural reranking (Cohere Rerank with CrossEncoder fallback) before generation. This hybrid approach demonstrably outperforms dense-only search, and the platform includes A/B comparison tools to prove it with your own data.
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/query-playground.png" alt="Query Playground" width="100%"><br><strong>Query Playground</strong> — Natural-language Q&A with citation tracking and latency breakdown</td>
+    <td><img src="docs/screenshots/health-dashboard.png" alt="Health Dashboard" width="100%"><br><strong>Health Dashboard</strong> — Real-time status for PostgreSQL, Qdrant, and Redis with latency metrics</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/tenant-admin-dark.png" alt="Tenant Admin" width="100%"><br><strong>Tenant Administration</strong> — Provision tenants, manage API keys, and monitor usage (dark mode)</td>
+    <td><img src="docs/screenshots/tenant-management.png" alt="Tenant Management" width="100%"><br><strong>Tenant Management</strong> — View active tenants with rate limits, creation dates, and status</td>
+  </tr>
+</table>
+
+---
+
+## What Problems Does It Solve?
+
+| Without this platform | With this platform |
+|---|---|
+| Knowledge trapped in unstructured documents across teams | Upload PDFs, DOCX, HTML, Markdown — ask questions in plain English |
+| No way to verify if an AI answer is grounded in source material | Every answer includes `[Source N]` citations with document name, page number, and relevance score |
+| Single-tenant solutions that can't serve multiple organizations | Full namespace isolation — each tenant gets dedicated vector collections, BM25 indices, and rate limits |
+| "It seems to work" retrieval with no quality measurement | RAGAS evaluation suite measures faithfulness, context recall, precision, and relevancy against a curated test set |
+| Dense-only vector search misses keyword-critical queries | Hybrid search (dense + BM25 + RRF) with neural reranking catches what embeddings miss |
+| No visibility into cost per query or per tenant | Per-query token counting, cost estimation, and tenant-level usage analytics |
+| Black-box retrieval — no idea which pipeline stage is slow | Full latency breakdown: embedding, retrieval, reranking, and generation measured separately |
+
+---
+
+## Who Is It For?
+
+- **Platform engineers** building internal knowledge bases that need to serve multiple teams or clients with data isolation
+- **AI/ML engineers** who need a reference implementation of production RAG with hybrid search, reranking, and evaluation
+- **Technical leads** evaluating RAG architectures and need measurable comparisons between retrieval strategies
+- **SaaS builders** who need multi-tenant document Q&A as a foundation for their product
+
+---
+
+## How It Works
+
+The platform follows a three-stage pipeline: **Ingest**, **Retrieve**, **Generate**.
+
+**1. Document Ingestion**
+Upload a document (PDF, DOCX, HTML, or Markdown). The ingestion pipeline extracts text, splits it into chunks using your chosen strategy (fixed-size, semantic, or parent-child), generates 384-dimensional embeddings via `all-MiniLM-L6-v2`, and stores vectors in a tenant-scoped Qdrant collection. A BM25 index is simultaneously built in Redis for sparse retrieval.
+
+**2. Hybrid Retrieval**
+When a query arrives, it's embedded and sent to both the dense retriever (Qdrant, top-20) and the sparse retriever (BM25, top-20). Results are fused via Reciprocal Rank Fusion (k=60), filtered by metadata (document IDs, categories, date ranges), and reranked using Cohere Rerank (with CrossEncoder fallback) down to the top-5 most relevant chunks.
+
+**3. Answer Generation**
+If the top reranked chunk scores above the confidence threshold (0.3), the chunks are passed to the LLM (GPT-4o-mini) with a grounding prompt. The response includes inline `[Source N]` citations mapped to specific document passages. If confidence is too low, the system returns "insufficient information" without invoking the LLM — saving cost and avoiding hallucination.
+
+```
+Document Upload
+    │
+    ├── Extract text (PyMuPDF / python-docx / BeautifulSoup)
+    ├── Chunk (fixed-size │ semantic │ parent-child)
+    ├── Embed (all-MiniLM-L6-v2, 384-dim)
+    ├── Store vectors (Qdrant, tenant-scoped collection)
+    └── Build sparse index (BM25, Redis)
+
+User Query
+    │
+    ├── Embed query
+    ├── Dense search (Qdrant, top-20)
+    ├── Sparse search (BM25, top-20)
+    ├── Reciprocal Rank Fusion
+    ├── Metadata filtering
+    ├── Neural reranking (Cohere / CrossEncoder) → top-5
+    ├── Confidence check (threshold: 0.3)
+    │     ├── Below → "Insufficient information"
+    │     └── Above → LLM generation with citations
+    └── Response: { answer, citations[], latency_breakdown, token_usage }
+```
 
 ---
 
@@ -17,7 +101,7 @@ A production-grade Retrieval-Augmented Generation platform with full multi-tenan
     │  │  Page    │ │  Page    │ │  Page    │ │  Page    │ │                  │ │
     │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────────────┘ │
     │       React 19 · TypeScript · Vite · TailwindCSS · Recharts · Axios       │
-    └───────────────────────────────┬──────────────────────────────────────────-──┘
+    └───────────────────────────────┬────────────────────────────────────────────┘
                                     │ HTTP / SSE
                                     ▼
     ┌───────────────────────────────────────────────────────────────────────────┐
@@ -26,7 +110,7 @@ A production-grade Retrieval-Augmented Generation platform with full multi-tenan
     │  ┌─── API Layer ──────────────────────────────────────────────────────┐   │
     │  │  Auth Middleware (Argon2 API Keys) · Rate Limiter (Redis Sliding)  │   │
     │  │  /api/v1/documents · /api/v1/query · /api/v1/admin · /health      │   │
-    │  └───────────────────────────────────────────────────────────────────-┘   │
+    │  └────────────────────────────────────────────────────────────────────┘   │
     │                                                                           │
     │  ┌─── Ingestion Pipeline ────┐   ┌─── Retrieval Pipeline ────────────┐   │
     │  │  Extractors:              │   │  Dense Retriever (Qdrant)         │   │
@@ -36,16 +120,16 @@ A production-grade Retrieval-Augmented Generation platform with full multi-tenan
     │  │   Parent-Child            │   │   Cohere API + CrossEncoder      │   │
     │  │  Embeddings:              │   │  Metadata Filtering              │   │
     │  │   sentence-transformers   │   │  Low-Confidence Detection        │   │
-    │  └───────────────────────────┘   └──────────────────────────────────-┘   │
+    │  └───────────────────────────┘   └───────────────────────────────────┘   │
     │                                                                           │
     │  ┌─── Generation Pipeline ───┐   ┌─── Evaluation Pipeline ──────────┐   │
     │  │  LLM Service (OpenAI API) │   │  RAGAS Metrics                   │   │
     │  │  Citation Builder         │   │  A/B Comparison (Hybrid vs Dense)│   │
     │  │  SSE Streaming            │   │  Reranking Impact Analysis       │   │
     │  │  Cost Tracker             │   │  50-Question Eval Set            │   │
-    │  └───────────────────────────┘   └──────────────────────────────────-┘   │
+    │  └───────────────────────────┘   └──────────────────────────────────┘   │
     │                                                                           │
-    └──────┬────────────────────┬──────────────────────┬───────────────────────-┘
+    └──────┬────────────────────┬──────────────────────┬───────────────────────┘
            │                    │                      │
            ▼                    ▼                      ▼
     ┌──────────────┐   ┌──────────────┐   ┌───────────────────┐
@@ -59,40 +143,7 @@ A production-grade Retrieval-Augmented Generation platform with full multi-tenan
     └──────────────┘   └──────────────┘   └───────────────────┘
 ```
 
-### RAG Query Flow
-
-```
-User Query
-    │
-    ├──► Embed Query (all-MiniLM-L6-v2)
-    │       │
-    │       ├──► Dense Search (Qdrant, top-20)
-    │       │
-    │       └──► Sparse Search (BM25, top-20)
-    │               │
-    │               ▼
-    │       Reciprocal Rank Fusion
-    │               │
-    │               ▼
-    │       Metadata Filtering (doc IDs, dates, categories)
-    │               │
-    │               ▼
-    │       Reranking (Cohere / CrossEncoder) → top-5
-    │               │
-    │               ▼
-    │       Confidence Check (threshold: 0.3)
-    │           │           │
-    │       < 0.3       ≥ 0.3
-    │           │           │
-    │    "Insufficient   LLM Generation
-    │     information"   with [Source N] citations
-    │                       │
-    │                       ▼
-    └──────────────► Response
-                     { answer, citations, latency_breakdown, token_usage }
-```
-
-### Multi-Tenancy Model
+### Multi-Tenancy Isolation Model
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -119,7 +170,48 @@ User Query
 
 ---
 
-## Technologies
+## Features
+
+- **Multi-Document Ingestion** — Upload PDF, DOCX, HTML, and Markdown files with automatic text extraction
+- **3 Chunking Strategies** — Fixed-size (512 tokens), semantic (similarity-based splits), and parent-child (hierarchical retrieval)
+- **Hybrid Search** — Dense vector search + BM25 sparse search combined via Reciprocal Rank Fusion
+- **Intelligent Reranking** — Cohere Rerank API with CrossEncoder fallback for precision
+- **Citation Generation** — Automatic `[Source N]` extraction with document name, page number, and relevance score
+- **Streaming Responses** — Token-by-token delivery via Server-Sent Events (SSE)
+- **Cost Tracking** — Per-query token counting and cost estimation with configurable pricing
+- **Metadata Filtering** — Filter by document IDs, date ranges, and categories
+- **RAGAS Evaluation** — Faithfulness, answer relevancy, context precision, and context recall
+- **A/B Comparison** — Hybrid vs dense-only and reranking impact analysis
+- **Per-Tenant Rate Limiting** — Configurable QPM with Redis sliding window
+- **Query Cache** — Redis-based caching with configurable TTL
+- **Low-Confidence Handling** — Graceful fallback when retrieval confidence is below threshold
+- **Structured Logging** — JSON logs with correlation IDs for end-to-end traceability
+- **Admin Dashboard** — Tenant provisioning, usage analytics, and evaluation management
+- **Load Testing** — Locust framework for 100 concurrent query simulation
+
+---
+
+## Real-World Scenarios
+
+### Scenario 1: Legal Firm with Multiple Clients
+
+A legal firm uploads case law PDFs and contracts for each client as a separate tenant. Lawyers ask questions like "What are the indemnification clauses in the Acme contract?" and receive answers citing specific paragraphs and page numbers. Client A's documents are never visible to Client B's queries — enforced at the vector store, BM25 index, and API middleware layers.
+
+### Scenario 2: Enterprise Knowledge Base
+
+A company uploads its internal documentation (HR policies, engineering runbooks, product specs) across different categories. Employees query "What's the PTO policy for employees in their first year?" and get a grounded answer with `[Source 1]` pointing to the HR handbook page 12. The admin monitors per-team usage and cost via the tenant usage dashboard.
+
+### Scenario 3: Evaluating Retrieval Strategy Changes
+
+An ML engineer wants to know if adding BM25 sparse retrieval improves answer quality over dense-only search. They run the RAGAS evaluation suite in both modes — hybrid and dense-only — against the 50-question evaluation set. The A/B comparison shows hybrid search achieves higher context recall (0.85+ vs 0.72), confirming the value of the sparse retrieval stage.
+
+### Scenario 4: SaaS Platform with API-First Integration
+
+A SaaS company embeds document Q&A into their product. They provision tenants via the admin API, distribute API keys to each customer, and call the query endpoint from their own frontend. Rate limiting prevents any single customer from overwhelming the system, and per-query cost tracking feeds into their billing pipeline.
+
+---
+
+## Tech Stack
 
 ### Backend
 
@@ -169,24 +261,306 @@ User Query
 
 ---
 
-## Features
+## Quick Start
 
-- **Multi-Document Ingestion** — Upload PDF, DOCX, HTML, and Markdown files with automatic text extraction
-- **3 Chunking Strategies** — Fixed-size (512 tokens), semantic (similarity-based splits), and parent-child (hierarchical retrieval)
-- **Hybrid Search** — Dense vector search + BM25 sparse search combined via Reciprocal Rank Fusion
-- **Intelligent Reranking** — Cohere Rerank API with CrossEncoder fallback for precision
-- **Citation Generation** — Automatic `[Source N]` extraction with document name, page number, and relevance score
-- **Streaming Responses** — Token-by-token delivery via Server-Sent Events (SSE)
-- **Cost Tracking** — Per-query token counting and cost estimation with configurable pricing
-- **Metadata Filtering** — Filter by document IDs, date ranges, and categories
-- **RAGAS Evaluation** — Faithfulness, answer relevancy, context precision, and context recall
-- **A/B Comparison** — Hybrid vs dense-only and reranking impact analysis
-- **Per-Tenant Rate Limiting** — Configurable QPM with Redis sliding window
-- **Query Cache** — Redis-based caching with configurable TTL
-- **Low-Confidence Handling** — Graceful fallback when retrieval confidence is below threshold
-- **Structured Logging** — JSON logs with correlation IDs for end-to-end traceability
-- **Admin Dashboard** — Tenant provisioning, usage analytics, and evaluation management
-- **Load Testing** — Locust framework for 100 concurrent query simulation
+### Prerequisites
+
+- Docker and Docker Compose
+- OpenAI API key (or compatible LLM endpoint)
+- Cohere API key (optional, for reranking)
+
+### Setup
+
+```bash
+# Clone and navigate
+cd backend
+
+# Copy environment config
+cp .env.example .env
+# Edit .env with your API keys
+
+# Start all services
+docker compose up -d
+
+# Run database migrations
+docker compose exec backend alembic upgrade head
+
+# Create your first tenant (via API or admin dashboard)
+curl -X POST http://localhost:8000/api/v1/admin/tenants \
+  -H "Authorization: Bearer admin-secret-key-change-me" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-tenant"}'
+```
+
+### Frontend Development
+
+```bash
+cd frontend
+npm install
+npm run dev
+# Opens at http://localhost:5173, proxies API to localhost:8000
+```
+
+### Running Tests
+
+```bash
+# Unit tests
+docker compose exec backend pytest tests/unit/ -v
+
+# Integration tests
+docker compose exec backend pytest tests/integration/ -v
+
+# Load tests
+docker compose exec backend locust -f tests/load/locustfile.py
+```
+
+---
+
+## Integration Guide
+
+Full API workflow from tenant provisioning to querying documents.
+
+### Step 1: Create a Tenant
+
+```bash
+curl -X POST http://localhost:8000/api/v1/admin/tenants \
+  -H "Authorization: Bearer admin-secret-key-change-me" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "acme-corp", "rate_limit_qpm": 60}'
+```
+
+**Response:**
+```json
+{
+  "tenant": {
+    "id": "a1b2c3d4-...",
+    "name": "acme-corp",
+    "is_active": true,
+    "rate_limit_qpm": 60,
+    "created_at": "2026-04-15T10:30:00Z"
+  },
+  "api_key": "rag_53EoMzpUxRhUfntgi4z..."
+}
+```
+
+> Save the `api_key` — it is shown only once.
+
+### Step 2: Upload a Document
+
+```bash
+curl -X POST http://localhost:8000/api/v1/documents \
+  -H "Authorization: Bearer rag_53EoMzpUxRhUfntgi4z..." \
+  -F "file=@report.pdf" \
+  -F "category=reports" \
+  -F "chunking_strategy=semantic"
+```
+
+**Response:**
+```json
+{
+  "id": "d5e6f7g8-...",
+  "filename": "report.pdf",
+  "format": "pdf",
+  "category": "reports",
+  "status": "queued",
+  "upload_date": "2026-04-15T10:31:00Z"
+}
+```
+
+Supported formats: `.pdf`, `.docx`, `.html`, `.htm`, `.md`, `.markdown` (max 100 MB).
+Chunking strategies: `fixed` (512 tokens), `semantic` (similarity-based), `parent_child` (hierarchical).
+
+### Step 3: Check Document Status
+
+```bash
+curl http://localhost:8000/api/v1/documents/d5e6f7g8-... \
+  -H "Authorization: Bearer rag_53EoMzpUxRhUfntgi4z..."
+```
+
+**Response:**
+```json
+{
+  "id": "d5e6f7g8-...",
+  "tenant_id": "a1b2c3d4-...",
+  "filename": "report.pdf",
+  "format": "pdf",
+  "category": "reports",
+  "status": "completed",
+  "page_count": 42,
+  "chunk_count": 87,
+  "chunking_strategy": "semantic",
+  "upload_date": "2026-04-15T10:31:00Z",
+  "created_at": "2026-04-15T10:31:00Z"
+}
+```
+
+Status transitions: `queued` → `processing` → `completed` / `failed`.
+
+### Step 4: Query Your Documents
+
+```bash
+curl -X POST http://localhost:8000/api/v1/query \
+  -H "Authorization: Bearer rag_53EoMzpUxRhUfntgi4z..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What are the main findings of the report?",
+    "top_k": 20,
+    "top_n": 5,
+    "search_type": "hybrid",
+    "filters": {
+      "categories": ["reports"]
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "answer": "The main findings include... [Source 1] ... [Source 2]",
+  "citations": [
+    {
+      "source_number": 1,
+      "document_name": "report.pdf",
+      "document_id": "d5e6f7g8-...",
+      "page_number": 3,
+      "chunk_text": "The analysis reveals that...",
+      "relevance_score": 0.92
+    }
+  ],
+  "query_metadata": {
+    "latency": {
+      "embedding_ms": 45,
+      "retrieval_ms": 120,
+      "reranking_ms": 300,
+      "generation_ms": 2000,
+      "total_ms": 2465
+    },
+    "tokens": {
+      "prompt_tokens": 1200,
+      "completion_tokens": 150,
+      "total_tokens": 1350,
+      "estimated_cost": 0.00025
+    },
+    "retrieval_strategy": "hybrid",
+    "reranking_enabled": true
+  }
+}
+```
+
+### Step 5: Stream Responses (SSE)
+
+```bash
+curl -N -X POST http://localhost:8000/api/v1/query/stream \
+  -H "Authorization: Bearer rag_53EoMzpUxRhUfntgi4z..." \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Summarize the key recommendations"}'
+```
+
+**SSE Events:**
+```
+data: {"type": "token", "content": "The"}
+data: {"type": "token", "content": " key"}
+data: {"type": "token", "content": " recommendations"}
+...
+data: {"type": "citations", "content": [{"source_number": 1, ...}]}
+data: {"type": "metadata", "content": {"latency": {...}, "tokens": {...}}}
+data: {"type": "done"}
+```
+
+### Step 6: Check Tenant Usage
+
+```bash
+curl http://localhost:8000/api/v1/admin/tenants/a1b2c3d4-.../usage \
+  -H "Authorization: Bearer admin-secret-key-change-me"
+```
+
+**Response:**
+```json
+{
+  "tenant_id": "a1b2c3d4-...",
+  "tenant_name": "acme-corp",
+  "total_queries": 142,
+  "total_prompt_tokens": 85000,
+  "total_completion_tokens": 12000,
+  "total_tokens": 97000,
+  "total_estimated_cost": 0.0156,
+  "document_count": 23
+}
+```
+
+### Step 7: Run RAGAS Evaluation
+
+```bash
+curl -X POST http://localhost:8000/api/v1/admin/eval/run \
+  -H "Authorization: Bearer admin-secret-key-change-me" \
+  -H "Content-Type: application/json" \
+  -d '{"strategy": "hybrid", "reranking_enabled": true}'
+```
+
+**Response:**
+```json
+{
+  "id": "e9f0a1b2-...",
+  "run_id": "eval-20260415-103500",
+  "strategy": "hybrid",
+  "reranking_enabled": true,
+  "faithfulness": 0.84,
+  "answer_relevancy": 0.79,
+  "context_precision": 0.81,
+  "context_recall": 0.88,
+  "created_at": "2026-04-15T10:35:00Z"
+}
+```
+
+---
+
+## Comparison with Alternatives
+
+| Feature | This Platform | LangChain + Chroma | LlamaIndex Cloud | Vercel AI SDK + Pinecone |
+|---|---|---|---|---|
+| Multi-tenant isolation | Dedicated vector collections + BM25 indices per tenant | Manual — requires custom namespace management | Managed — but vendor lock-in | Manual — requires custom implementation |
+| Hybrid search (dense + sparse) | Built-in: Qdrant + BM25 + RRF fusion | Requires custom assembly | Supported via managed pipeline | Dense-only by default |
+| Neural reranking | Cohere + CrossEncoder fallback | Plugin-based, no fallback | Managed reranker | Not included |
+| Citation generation | Automatic `[Source N]` with page numbers and scores | Manual prompt engineering | Basic source nodes | Manual implementation |
+| Evaluation framework | Built-in RAGAS with A/B comparison | Separate integration needed | Basic evaluation | No built-in evaluation |
+| Cost tracking | Per-query token counting with tenant-level aggregation | Not included | Platform-level only | Not included |
+| Rate limiting | Per-tenant Redis sliding window | Not included | Platform-managed | Not included |
+| Streaming | SSE with structured events (token, citations, metadata) | Basic streaming | Managed streaming | Built-in streaming |
+| Self-hosted | Fully self-hosted via Docker Compose | Self-hosted | Cloud-managed (SaaS) | Cloud-dependent |
+| Chunking strategies | 3 built-in (fixed, semantic, parent-child) | Multiple via plugins | Managed | Manual implementation |
+
+**Key differentiator:** This platform is the only option that combines multi-tenant isolation, hybrid search with reranking, automatic citations, and built-in RAGAS evaluation in a single self-hosted package. Managed solutions (LlamaIndex Cloud) trade control for convenience. Framework-only solutions (LangChain, Vercel AI SDK) require assembling these capabilities yourself.
+
+---
+
+## Key Metrics & Success Criteria
+
+These targets are validated against a 50-question evaluation set using the RAGAS framework:
+
+| Metric | Target | What It Measures |
+|---|---|---|
+| Context Recall | > 0.85 | Are all necessary source chunks retrieved? |
+| Faithfulness | > 0.80 | Is the answer grounded in the retrieved context (no hallucination)? |
+| Answer Relevancy | > 0.75 | Does the answer actually address the question asked? |
+| Context Precision | > 0.75 | Are the retrieved chunks relevant (low noise)? |
+| Retrieval Latency | < 3 seconds | End-to-end retrieval excluding LLM generation |
+| Concurrent Load | 100 queries | System handles 100 concurrent queries without failure |
+| Hybrid vs Dense-Only | Hybrid wins | A/B comparison demonstrates hybrid search outperforms dense-only |
+| Reranking Impact | Measurable gain | Reranking demonstrably improves precision over un-reranked results |
+| Tenant Isolation | Zero leakage | Tenant A's queries never return Tenant B's documents |
+
+---
+
+## Scope / What This Does NOT Do
+
+This platform is intentionally scoped. The following are explicitly **out of scope**:
+
+- **User-level authentication within tenants** — Only tenant-level API keys are implemented. There is no concept of individual users within a tenant.
+- **Billing and payment processing** — Cost tracking is provided for integration with external billing systems, but no payment flows are built in.
+- **Document versioning** — Uploading a new version of a document requires deleting the old one and re-uploading. There is no edit history.
+- **Multi-language support** — The platform is English-only. Embeddings, BM25 tokenization, and evaluation are tuned for English text.
+- **Fine-tuning or custom model training** — The platform uses pre-trained models (sentence-transformers for embeddings, OpenAI-compatible API for generation). No training pipelines are included.
+- **User-facing authentication UI** — The frontend is an admin/developer tool. Tenant API keys are managed via the admin API or the Tenants page — there is no login flow for end users.
 
 ---
 
@@ -284,6 +658,7 @@ Multi-Tenant RAG Platform/
 | `GET` | `/api/v1/admin/tenants/{id}/usage` | Get tenant usage stats |
 | `POST` | `/api/v1/admin/eval/run` | Trigger RAGAS evaluation run |
 | `GET` | `/api/v1/admin/eval/results` | Get evaluation results |
+| `GET` | `/api/v1/admin/config/chunking-strategies` | Get available chunking strategies |
 
 ### Health
 
@@ -302,111 +677,6 @@ Multi-Tenant RAG Platform/
 | `documents` | Document metadata and ingestion status tracking |
 | `query_logs` | Query history with token usage, cost, and latency breakdown |
 | `eval_results` | RAGAS evaluation metrics per run |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Docker and Docker Compose
-- OpenAI API key (or compatible LLM endpoint)
-- Cohere API key (optional, for reranking)
-
-### Setup
-
-```bash
-# Clone and navigate
-cd backend
-
-# Copy environment config
-cp .env.example .env
-# Edit .env with your API keys
-
-# Start all services
-docker compose up -d
-
-# Run database migrations
-docker compose exec backend alembic upgrade head
-
-# Create your first tenant (via API or admin dashboard)
-curl -X POST http://localhost:8000/api/v1/admin/tenants \
-  -H "Authorization: Bearer admin-secret-key-change-me" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-tenant"}'
-```
-
-### Frontend Development
-
-```bash
-cd frontend
-npm install
-npm run dev
-# Opens at http://localhost:5173, proxies API to localhost:8000
-```
-
-### Running Tests
-
-```bash
-# Unit tests
-docker compose exec backend pytest tests/unit/ -v
-
-# Integration tests
-docker compose exec backend pytest tests/integration/ -v
-
-# Load tests
-docker compose exec backend locust -f tests/load/locustfile.py
-```
-
----
-
-## Query Example
-
-**Request:**
-```json
-POST /api/v1/query
-{
-  "question": "What are the main findings of the report?",
-  "top_k": 20,
-  "top_n": 5,
-  "search_type": "hybrid",
-  "filters": {
-    "categories": ["report"]
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "answer": "The main findings include... [Source 1] ... [Source 2]",
-  "citations": [
-    {
-      "source_number": 1,
-      "document_name": "report.pdf",
-      "page_number": 3,
-      "chunk_text": "...",
-      "relevance_score": 0.92
-    }
-  ],
-  "query_metadata": {
-    "latency": {
-      "embedding_ms": 45,
-      "retrieval_ms": 120,
-      "reranking_ms": 300,
-      "generation_ms": 2000,
-      "total_ms": 2465
-    },
-    "tokens": {
-      "prompt_tokens": 1200,
-      "completion_tokens": 150,
-      "total_tokens": 1350
-    },
-    "retrieval_strategy": "hybrid",
-    "reranking_enabled": true
-  }
-}
-```
 
 ---
 
