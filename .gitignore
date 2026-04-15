@@ -66,6 +66,13 @@ pgdata/
 *.swo
 *~
 
+# ===== Playwright =====
+.playwright-mcp/
+test-screenshots/
+test-results/
+playwright-report/
+blob-report/
+
 # ===== OS Files =====
 .DS_Store
 Thumbs.db
