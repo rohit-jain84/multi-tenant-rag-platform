@@ -13,7 +13,10 @@ const stages = [
 ];
 
 export default function LatencyBreakdown({ latency }: LatencyBreakdownProps) {
-  const total = latency.total_ms || 1;
+  const computedTotal = (latency.embedding_and_dense_ms ?? 0) + (latency.sparse_ms ?? 0)
+    + (latency.reranking_ms ?? 0) + (latency.generation_ms ?? 0);
+  const totalMs = latency.total_ms || computedTotal;
+  const total = totalMs || 1;
 
   return (
     <div className="space-y-2">
@@ -22,7 +25,7 @@ export default function LatencyBreakdown({ latency }: LatencyBreakdownProps) {
           Pipeline Latency
         </h4>
         <span className="text-xs font-mono text-text-muted dark:text-dark-text-muted">
-          {formatMs(latency.total_ms)}
+          {formatMs(totalMs)}
         </span>
       </div>
 

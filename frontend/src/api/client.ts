@@ -7,13 +7,20 @@ const apiClient = axios.create({
 });
 
 let getApiKey: (() => string | null) | null = null;
+let getAdminApiKey: (() => string | null) | null = null;
 
 export function setApiKeyGetter(getter: () => string | null) {
   getApiKey = getter;
 }
 
+export function setAdminApiKeyGetter(getter: () => string | null) {
+  getAdminApiKey = getter;
+}
+
 apiClient.interceptors.request.use((config) => {
-  const key = getApiKey?.();
+  const url = config.url || '';
+  const isAdmin = url.includes('/admin/');
+  const key = isAdmin ? (getAdminApiKey?.() || getApiKey?.()) : getApiKey?.();
   if (key) {
     config.headers.Authorization = `Bearer ${key}`;
   }

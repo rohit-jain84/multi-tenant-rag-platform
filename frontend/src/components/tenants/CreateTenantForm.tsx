@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 interface CreateTenantFormProps {
   open: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (tenantId: string, tenantName: string, apiKey: string) => void;
 }
 
 export default function CreateTenantForm({ open, onClose, onCreated }: CreateTenantFormProps) {
@@ -24,7 +24,7 @@ export default function CreateTenantForm({ open, onClose, onCreated }: CreateTen
       const result = await createTenant({ name: name.trim() });
       setGeneratedKey(result.api_key);
       toast.success(`Tenant "${name}" created`);
-      onCreated();
+      onCreated(result.tenant.id, result.tenant.name, result.api_key);
     } catch {
       toast.error('Failed to create tenant');
     } finally {
