@@ -43,36 +43,6 @@ services:
       retries: 5
     mem_limit: 1g
 
-  backend:
-    build: .
-    ports:
-      - "8300:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://raguser:ragpass@postgres:5432/ragplatform
-      REDIS_URL: redis://redis:6379/0
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: 6333
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-    mem_limit: 2g
-
-  frontend:
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3300:80"
-    depends_on:
-      - backend
-    mem_limit: 256m
-
 volumes:
   postgres_data:
   redis_data:

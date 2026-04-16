@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode } from 'react';
 import { setApiKeyGetter, setAdminApiKeyGetter } from '../api/client';
 
 interface AuthState {
@@ -51,17 +51,27 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, undefined, loadInitialState);
 
+  // Use refs so the getter closures always return the latest value.
+  // This avoids the race condition where child effects (e.g. useTenants)
+  // fire before parent effects, meaning the getter would still be null
+  // when the first API call is made.
+  const apiKeyRef = useRef(state.apiKey);
+  const adminApiKeyRef = useRef(state.adminApiKey);
+
+  // Keep refs in sync on every render (synchronous, no effect delay).
+  apiKeyRef.current = state.apiKey;
+  adminApiKeyRef.current = state.adminApiKey;
+
+  // Register the getter functions once — they read from refs so they
+  // always return the current value without needing to be re-registered.
+  useEffect(() => {
+    setApiKeyGetter(() => apiKeyRef.current);
+    setAdminApiKeyGetter(() => adminApiKeyRef.current);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
-
-  useEffect(() => {
-    setApiKeyGetter(() => state.apiKey);
-  }, [state.apiKey]);
-
-  useEffect(() => {
-    setAdminApiKeyGetter(() => state.adminApiKey);
-  }, [state.adminApiKey]);
 
   const setTenant = (tenantId: string, tenantName: string, apiKey: string) => {
     dispatch({ type: 'SET_TENANT', tenantId, tenantName, apiKey });

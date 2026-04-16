@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom';
-import { FileText, MessageSquare, BarChart3, Users, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, MessageSquare, BarChart3, Users, Activity, ChevronLeft, ChevronRight, Sun, Moon } from 'lucide-react';
 import { useState } from 'react';
 import { ROUTES } from '../../utils/constants';
+import { useTheme } from '../../context/ThemeContext';
 
 const navItems = [
   { path: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText },
@@ -13,6 +14,7 @@ const navItems = [
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const { isDark, toggle: toggleTheme } = useTheme();
 
   return (
     <aside
@@ -51,15 +53,26 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Collapse Toggle */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-center p-3 border-t border-border dark:border-dark-border
-          text-text-muted dark:text-dark-text-muted hover:bg-surface dark:hover:bg-dark-surface-alt
-          transition-colors cursor-pointer"
-      >
-        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-      </button>
+      {/* Theme Toggle + Collapse */}
+      <div className="border-t border-border dark:border-dark-border">
+        <button
+          onClick={toggleTheme}
+          className="flex items-center gap-3 w-full px-3 py-2.5 text-text-muted dark:text-dark-text-muted
+            hover:bg-surface dark:hover:bg-dark-surface-alt transition-colors cursor-pointer"
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? <Sun className="h-5 w-5 flex-shrink-0" /> : <Moon className="h-5 w-5 flex-shrink-0" />}
+          {!collapsed && <span className="text-sm">{isDark ? 'Light Mode' : 'Dark Mode'}</span>}
+        </button>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center justify-center w-full p-3
+            text-text-muted dark:text-dark-text-muted hover:bg-surface dark:hover:bg-dark-surface-alt
+            transition-colors cursor-pointer"
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
+      </div>
     </aside>
   );
 }

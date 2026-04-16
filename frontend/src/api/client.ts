@@ -6,8 +6,22 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-let getApiKey: (() => string | null) | null = null;
-let getAdminApiKey: (() => string | null) | null = null;
+// Bootstrap getters from localStorage so admin/tenant keys are available
+// immediately — before any React effects fire. The AuthProvider will
+// override these with ref-backed getters on mount.
+function _bootstrapKey(field: 'apiKey' | 'adminApiKey'): string | null {
+  try {
+    const stored = localStorage.getItem('rag_auth');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed[field] ?? null;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+let getApiKey: (() => string | null) | null = () => _bootstrapKey('apiKey');
+let getAdminApiKey: (() => string | null) | null = () => _bootstrapKey('adminApiKey');
 
 export function setApiKeyGetter(getter: () => string | null) {
   getApiKey = getter;
