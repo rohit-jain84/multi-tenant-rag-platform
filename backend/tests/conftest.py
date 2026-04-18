@@ -1,9 +1,31 @@
 import uuid
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.config import settings
+from app.db.base import Base
+from app.db.session import engine
+
+# Import every model module so SQLAlchemy registers all tables on Base.metadata
+# before create_all runs. `app.models.__init__` re-exports Tenant, ApiKey,
+# Document, QueryLog, and EvalResult, which is enough to ensure every mapper
+# is imported. Without this import, only models transitively imported by
+# app.main (Tenant, ApiKey via auth middleware; Document via document_service;
+# QueryLog via cost_tracker; EvalResult via admin router) would be registered,
+# and any model not reachable from app.main would be missing from create_all.
+import app.models  # noqa: F401
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def _create_test_schema():
+    """Create all tables before the test session and drop them afterwards."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
