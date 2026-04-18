@@ -18,7 +18,7 @@ class EvalResultResponse(BaseModel):
     answer_relevancy: float | None
     context_precision: float | None
     context_recall: float | None
-    per_question_results: dict | None
+    per_question_results: dict | list | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

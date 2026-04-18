@@ -16,12 +16,12 @@ The retrieval pipeline goes beyond basic vector search. It combines dense embedd
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/query-playground.png" alt="Query Playground" width="100%"><br><strong>Query Playground</strong> — Natural-language Q&A with citation tracking and latency breakdown</td>
-    <td><img src="docs/screenshots/health-dashboard.png" alt="Health Dashboard" width="100%"><br><strong>Health Dashboard</strong> — Real-time status for PostgreSQL, Qdrant, and Redis with latency metrics</td>
+    <td><img src="docs/screenshots/query-playground.png" alt="Query Playground" width="100%"><br><strong>Query Playground</strong> — Real Q&A with <code>[Source N]</code> citations and a four-stage latency breakdown (embed, sparse, rerank, generate)</td>
+    <td><img src="docs/screenshots/ragas-evaluation.png" alt="RAGAS Evaluation" width="100%"><br><strong>RAGAS Evaluation</strong> — Faithfulness 0.847, Answer Relevancy 0.860, Context Recall 0.877, Context Precision 0.780 over the 50-question eval set, with a score-history chart</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/tenant-admin-dark.png" alt="Tenant Admin" width="100%"><br><strong>Tenant Administration</strong> — Provision tenants, manage API keys, and monitor usage (dark mode)</td>
-    <td><img src="docs/screenshots/tenant-management.png" alt="Tenant Management" width="100%"><br><strong>Tenant Management</strong> — View active tenants with rate limits, creation dates, and status</td>
+    <td><img src="docs/screenshots/health-dashboard.png" alt="Health Dashboard" width="100%"><br><strong>Health Dashboard</strong> — Real-time latency for PostgreSQL, Qdrant, and Redis with per-service status pills</td>
+    <td><img src="docs/screenshots/tenant-management.png" alt="Tenant Management" width="100%"><br><strong>Tenant Management</strong> — Active tenants with per-tenant rate limits (QPM), creation dates, and health indicators</td>
   </tr>
 </table>
 
